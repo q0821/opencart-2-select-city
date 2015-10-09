@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+  <name>Simple Checkout zone city postcode display fixed</name>
+  <code>Simple-city</code>
+  <version>0.1</version>
+  <author>Jackie</author>
+  <link>http://www.tellustek.com</link>
+
+  <!-- ########################### -->
+  <!--           Catalog           -->
+  <!-- ########################### -->
+  <file path="catalog/model/account/address.php">
+    <operation>
+      <search>
+        <![CDATA[
+          $address_data[$result['address_id']] = array(
+        ]]>
+      </search>
+      <add position="before">
+        <![CDATA[
+            $city_query = $this->db->query("SELECT * FROM `" . DB_PREFIX . "city` WHERE city_id = '" . (int)$result['city'] . "'");
+
+            if ($city_query->num_rows) {
+              $result['city'] = $city_query->row['name'];
+            }
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <file path="catalog/model/account/order.php">
+    <operation>
+      <search>
+        <![CDATA[
+          return array(
+        ]]>
+      </search>
+      <add position="before">
+        <![CDATA[
+            $payment_city = $this->db->query("SELECT * FROM `" . DB_PREFIX . "city` WHERE city_id = '" . (int)$order_query->row['payment_city'] . "'");
+
+            if ($payment_city->num_rows) {
+              $order_query->row['payment_city'] = $payment_city->row['name'];
+            }
+
+            $shipping_city = $this->db->query("SELECT * FROM `" . DB_PREFIX . "city` WHERE city_id = '" . (int)$order_query->row['shipping_city'] . "'");
+
+            if ($shipping_city->num_rows) {
+              $order_query->row['shipping_city'] = $shipping_city->row['name'];
+            }
+        ]]>
+      </add>
+    </operation>
+  </file>
+
+  <!-- ########################### -->
+  <!--           Admin             -->
+  <!-- ########################### -->
+
+  <!-- ########################### -->
+  <!--    sale/customer/edit       -->
+  <!-- ########################### -->
+  <file path="admin/controller/sale/customer.php">
+    <operation>
+      <search>
+        <![CDATA[
+          if ((utf8_strlen($value['city']) < 2) || (utf8_strlen($value['city']) > 128)) {
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          if ((utf8_strlen($value['city']) < 1) || (utf8_strlen($value['city']) > 128)) {
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          public function country() {
+        ]]>
+      </search>
+      <add position="before">
+        <![CDATA[
+            public function zone() {
+              $json = array();
+
+              $this->load->model('localisation/zone');
+
+              $zone_info = $this->model_localisation_zone->getZone($this->request->get['zone_id']);
+
+              if ($zone_info) {
+                $this->load->model('localisation/city');
+
+                $json = array(
+                  'zone_id'        => $zone_info['zone_id'],
+                  'name'              => $zone_info['name'],
+                  'city'              => $this->model_localisation_city->getCitiesByZoneId($this->request->get['zone_id'])
+                );
+              }
+
+              $this->response->addHeader('Content-Type: application/json');
+              $this->response->setOutput(json_encode($json));
+            }
+
+            public function city() {
+              $json = array();
+
+              $this->load->model('localisation/city');
+
+              $city_info = $this->model_localisation_city->getCity($this->request->get['city_id']);
+
+              if ($city_info) {
+                $json = array(
+                  'city_id'           => $city_info['city_id'],
+                  'zone_id'           => $city_info['zone_id'],
+                  'name'            => $city_info['name'],
+                  'postcode'          => $city_info['postcode']
+                );
+              }
+
+              $this->response->addHeader('Content-Type: application/json');
+              $this->response->setOutput(json_encode($json));
+            }
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <file path="admin/view/template/sale/customer_form.tpl">
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="address[<?php echo $address_row; ?>][city]" value="<?php echo $address['city']; ?>" placeholder="<?php echo $entry_city; ?>" id="input-city<?php echo $address_row; ?>" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="address[<?php echo $address_row; ?>][city]" id="input-city<?php echo $address_row; ?>" onchange="city(this, '<?php echo $address_row; ?>', '<?php echo $address['postcode']; ?>');" class="form-control">
+            <option value="<?php echo $address['city']; ?>" selected="selected"></option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="address[<?php echo $address_row; ?>][postcode]" value="<?php echo $address['postcode']; ?>" placeholder="<?php echo $entry_postcode; ?>" id="input-postcode<?php echo $address_row; ?>" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="address[<?php echo $address_row; ?>][postcode]" id="input-postcode<?php echo $address_row; ?>" class="form-control">
+            <option value="<?php echo $address['postcode']; ?>" selected="selected"><?php echo $address['postcode']; ?>
+            </option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <select name="address[<?php echo $address_row; ?>][zone_id]" id="input-zone<?php echo $address_row; ?>" class="form-control">
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="address[<?php echo $address_row; ?>][zone_id]" id="input-zone<?php echo $address_row; ?>" onchange="zone(this, '<?php echo $address_row; ?>', '<?php echo $address['city']; ?>');" class="form-control">
+            <option value="<?php echo $address['zone_id']; ?>" selected="selected"></option>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          html += '    <div class="col-sm-10"><input type="text" name="address[' + address_row + '][city]" value="" placeholder="<?php echo $entry_city; ?>" id="input-city' + address_row + '" class="form-control" /></div>';
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          html += '    <div class="col-sm-10"><select name="address[' + address_row + '][city]" id="input-city' + address_row + '" onchange="city(this, \'' + address_row + '\', \'0\');" class="form-control"></select></div>';
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          html += '    <div class="col-sm-10"><input type="text" name="address[' + address_row + '][postcode]" value="" placeholder="<?php echo $entry_postcode; ?>" id="input-postcode' + address_row + '" class="form-control" /></div>';
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          html += '    <div class="col-sm-10"><select name="address[' + address_row + '][postcode]" id="input-postcode' + address_row + '" class="form-control"></select></div>';
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          html += '    <div class="col-sm-10"><select name="address[' + address_row + '][zone_id]" id="input-zone' + address_row + '" class="form-control"><option value=""><?php echo $text_none; ?></option></select></div>';
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          html += '    <div class="col-sm-10"><select name="address[' + address_row + '][zone_id]" id="input-zone' + address_row + '" onchange="zone(this, \'' + address_row + '\', \'0\');" class="form-control"></select></div>';
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          $('select[name$=\'[country_id]\']').trigger('change');
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          function zone(element, index, city) {
+            if (element.value != '') {
+              $.ajax({
+                url: 'index.php?route=sale/customer/zone&token=<?php echo $token; ?>&zone_id=' + element.value,
+                dataType: 'json',
+                beforeSend: function() {
+                  $('select[name=\'address[' + index + '][zone_id]\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+                },
+                complete: function() {
+                  $('.fa-spin').remove();
+                },
+                success: function(json) {
+                  html = '<option value=""><?php echo $text_select; ?></option>';
+
+                  if (json['city'] != '') {
+                    for (i = 0; i < json['city'].length; i++) {
+                      html += '<option value="' + json['city'][i]['city_id'] + '"';
+
+                      if (json['city'][i]['city_id'] == city) {
+                        html += ' selected="selected"';
+                      }
+
+                      html += '>' + json['city'][i]['name'] + '</option>';
+                    }
+                  } else {
+                    html += '<option value="0"><?php echo $text_none; ?></option>';
+                  }
+
+                  $('select[name=\'address[' + index + '][city]\']').html(html);
+                },
+                error: function(xhr, ajaxOptions, thrownError) {
+                  alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+                }
+              });
+            }
+          }
+
+          function city(element, index, postcode) {
+            if (element.value != '') {
+              $.ajax({
+                url: 'index.php?route=sale/customer/city&token=<?php echo $token; ?>&city_id=' + element.value,
+                dataType: 'json',
+                beforeSend: function() {
+                  $('select[name=\'address[' + index + '][city]\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+                },
+                complete: function() {
+                  $('.fa-spin').remove();
+                },
+                success: function(json) {
+                  html = '';
+                  if (json['city_id'] != '') {
+                      html += '<option value="' + json['postcode'] + '"';
+                      html += ' selected="selected"';
+                      html += '>' + json['postcode'] + '</option>';
+                  } else {
+                    html += '<option value="0"><?php echo $text_none; ?></option>';
+                  }
+
+                  $('select[name=\'address[' + index + '][postcode]\']').html(html);
+                },
+                error: function(xhr, ajaxOptions, thrownError) {
+                  alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+                }
+              });
+            }
+          }
+
+          $('select[name$=\'[country_id]\']').trigger('change');
+          $('select[name$=\'[zone_id]\']').trigger('change');
+          $('select[name$=\'[city]\']').trigger('change');
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <!-- ########################### -->
+  <!--    sale/order/edit       -->
+  <!-- ########################### -->
+
+  <file path="catalog/controller/api/payment.php">
+    <operation>
+      <search>
+        <![CDATA[
+          if ((utf8_strlen($this->request->post['city']) < 2) || (utf8_strlen($this->request->post['city']) > 32)) {
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          if ((utf8_strlen($this->request->post['city']) < 1) || (utf8_strlen($this->request->post['city']) > 32)) {
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <file path="catalog/controller/api/shipping.php">
+    <operation>
+      <search>
+        <![CDATA[
+          if ((utf8_strlen($this->request->post['city']) < 2) || (utf8_strlen($this->request->post['city']) > 32)) {
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          if ((utf8_strlen($this->request->post['city']) < 1) || (utf8_strlen($this->request->post['city']) > 32)) {
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <file path="admin/controller/sale/order.php">
+    <operation>
+      <search>
+        <![CDATA[
+          public function history() {
+        ]]>
+      </search>
+      <add position="before">
+        <![CDATA[
+          public function zone() {
+            $json = array();
+
+            $this->load->model('localisation/zone');
+
+            $zone_info = $this->model_localisation_zone->getZone($this->request->get['zone_id']);
+
+            if ($zone_info) {
+              $this->load->model('localisation/city');
+
+              $json = array(
+                'zone_id'        => $zone_info['zone_id'],
+                'name'              => $zone_info['name'],
+                'city'              => $this->model_localisation_city->getCitiesByZoneId($this->request->get['zone_id'])
+              );
+            }
+
+            $this->response->addHeader('Content-Type: application/json');
+            $this->response->setOutput(json_encode($json));
+          }
+
+          public function city() {
+            $json = array();
+
+            $this->load->model('localisation/city');
+
+            $city_info = $this->model_localisation_city->getCity($this->request->get['city_id']);
+
+            if ($city_info) {
+              $json = array(
+                'city_id'           => $city_info['city_id'],
+                'zone_id'           => $city_info['zone_id'],
+                'name'            => $city_info['name'],
+                'postcode'          => $city_info['postcode']
+              );
+            }
+
+            $this->response->addHeader('Content-Type: application/json');
+            $this->response->setOutput(json_encode($json));
+          }
+        ]]>
+      </add>
+    </operation>
+  </file>
+  <file path="admin/view/template/sale/order_form.tpl">
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="city" value="<?php echo $payment_city; ?>" id="input-payment-city" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="city" id="input-payment-city" class="form-control">
+            <option value="<?php echo $payment_city; ?>" selected="selected"></option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="postcode" value="<?php echo $payment_postcode; ?>" id="input-payment-postcode" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="postcode" id="input-payment-postcode" class="form-control">
+            <option value="<?php echo $payment_postcode; ?>" selected="selected"><?php echo $payment_postcode; ?></option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <select name="zone_id" id="input-payment-zone" class="form-control">
+        ]]>
+      </search>
+      <add position="after">
+        <![CDATA[
+          <option value="<?php echo $payment_zone_id; ?>" selected="selected"></option>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="city" value="<?php echo $shipping_city; ?>" id="input-shipping-city" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="city" id="input-shipping-city" class="form-control">
+            <option value="<?php echo $shipping_city; ?>" selected="selected"></option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <input type="text" name="postcode" value="<?php echo $shipping_postcode; ?>" id="input-shipping-postcode" class="form-control" />
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          <select name="postcode" id="input-shipping-postcode" class="form-control">
+            <option value="<?php echo $shipping_postcode; ?>" selected="selected"><?php echo $shipping_postcode; ?></option>
+          </select>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search>
+        <![CDATA[
+          <select name="zone_id" id="input-shipping-zone" class="form-control">
+        ]]>
+      </search>
+      <add position="after">
+        <![CDATA[
+          <option value="<?php echo $shipping_zone_id; ?>" selected="selected"></option>
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search index="1">
+        <![CDATA[
+          $('#tab-payment select[name=\'country_id\']').trigger('change');
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          var payment_city = '<?php echo $payment_city; ?>';
+          $('#tab-payment select[name=\'zone_id\']').on('change', function() {
+            $.ajax({
+              url: 'index.php?route=sale/order/zone&token=<?php echo $token; ?>&zone_id=' + this.value,
+              dataType: 'json',
+              beforeSend: function() {
+                $('#tab-payment select[name=\'zone_id\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+              },
+              complete: function() {
+                $('#tab-payment .fa-spin').remove();
+              },      
+              success: function(json) {
+                html = '<option value=""><?php echo $text_select; ?></option>';
+
+                if (json['city'] != '') {
+                  for (i = 0; i < json['city'].length; i++) {
+                        html += '<option value="' + json['city'][i]['city_id'] + '"';
+                      
+                    if (json['city'][i]['city_id'] == payment_city) {
+                          html += ' selected="selected"';
+                      }
+            
+                      html += '>' + json['city'][i]['name'] + '</option>';
+                  }
+                } else {
+                  html += '<option value="0" selected="selected"><?php echo $text_none; ?></option>';
+                }
+                
+                $('#tab-payment select[name=\'city\']').html(html);
+              },
+              error: function(xhr, ajaxOptions, thrownError) {
+                alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+              }
+            });
+          });
+
+          var payment_postcode = '<?php echo $payment_postcode; ?>';
+          $('#tab-payment select[name=\'city\']').on('change', function() {
+            $.ajax({
+              url: 'index.php?route=sale/order/city&token=<?php echo $token; ?>&city_id=' + this.value,
+              dataType: 'json',
+              beforeSend: function() {
+                $('#tab-payment select[name=\'city\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+              },
+              complete: function() {
+                $('#tab-payment .fa-spin').remove();
+              },      
+              success: function(json) {
+                html = '';
+
+                if (json['city_id'] != '') {
+                  html += '<option value="' + json['postcode'] + '"';
+                  html += ' selected="selected"';
+                  html += '>' + json['postcode'] + '</option>';
+                } else {
+                  html += '<option value="0" selected="selected"><?php echo $text_none; ?></option>';
+                }
+                
+                $('#tab-payment select[name=\'postcode\']').html(html);
+              },
+              error: function(xhr, ajaxOptions, thrownError) {
+                alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+              }
+            });
+          });
+
+          $('#tab-payment select[name=\'country_id\']').trigger('change');
+          $('#tab-payment select[name=\'zone_id\']').trigger('change');
+          $('#tab-payment select[name=\'city\']').trigger('change');
+        ]]>
+      </add>
+    </operation>
+    <operation>
+      <search index="1">
+        <![CDATA[
+          $('#tab-shipping select[name=\'country_id\']').trigger('change');
+        ]]>
+      </search>
+      <add position="replace">
+        <![CDATA[
+          var shipping_city = '<?php echo $shipping_city; ?>';
+          $('#tab-shipping select[name=\'zone_id\']').on('change', function() {
+            $.ajax({
+              url: 'index.php?route=sale/order/zone&token=<?php echo $token; ?>&zone_id=' + this.value,
+              dataType: 'json',
+              beforeSend: function() {
+                $('#tab-shipping select[name=\'zone_id\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+              },
+              complete: function() {
+                $('#tab-shipping .fa-spin').remove();
+              },      
+              success: function(json) {
+                html = '<option value=""><?php echo $text_select; ?></option>';
+
+                if (json['city'] != '') {
+                  for (i = 0; i < json['city'].length; i++) {
+                        html += '<option value="' + json['city'][i]['city_id'] + '"';
+                      
+                    if (json['city'][i]['city_id'] == shipping_city) {
+                          html += ' selected="selected"';
+                      }
+            
+                      html += '>' + json['city'][i]['name'] + '</option>';
+                  }
+                } else {
+                  html += '<option value="0" selected="selected"><?php echo $text_none; ?></option>';
+                }
+                
+                $('#tab-shipping select[name=\'city\']').html(html);
+              },
+              error: function(xhr, ajaxOptions, thrownError) {
+                alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+              }
+            });
+          });
+
+          var shipping_postcode = '<?php echo $shipping_postcode; ?>';
+          $('#tab-shipping select[name=\'city\']').on('change', function() {
+            $.ajax({
+              url: 'index.php?route=sale/order/city&token=<?php echo $token; ?>&city_id=' + this.value,
+              dataType: 'json',
+              beforeSend: function() {
+                $('#tab-shipping select[name=\'city\']').after(' <i class="fa fa-circle-o-notch fa-spin"></i>');
+              },
+              complete: function() {
+                $('#tab-shipping .fa-spin').remove();
+              },      
+              success: function(json) {
+                html = '';
+
+                if (json['city_id'] != '') {
+                  html += '<option value="' + json['postcode'] + '"';
+                  html += ' selected="selected"';
+                  html += '>' + json['postcode'] + '</option>';
+                } else {
+                  html += '<option value="0" selected="selected"><?php echo $text_none; ?></option>';
+                }
+                
+                $('#tab-shipping select[name=\'postcode\']').html(html);
+              },
+              error: function(xhr, ajaxOptions, thrownError) {
+                alert(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+              }
+            });
+          });
+
+          $('#tab-shipping select[name=\'country_id\']').trigger('change');
+          $('#tab-shipping select[name=\'zone_id\']').trigger('change');
+          $('#tab-shipping select[name=\'city\']').trigger('change');
+        ]]>
+      </add>
+    </operation>
+  </file>
+</modification>
